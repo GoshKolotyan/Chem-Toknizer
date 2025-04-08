@@ -1,4 +1,5 @@
 import re
+from pprint import pprint
 import pandas as pd
 import torch
 
@@ -54,11 +55,14 @@ class ChemTokenizer:
         r_a     = row["R_a"]
         r_b     = row["R_b"]
         r_x     = row["R_x"]
-        prob_a  = row["Prop_a"]    # or "Prob_a" if that's your actual CSV column
-        prob_b  = row["Prop_b"]
-        prob_b2 = row["Prop_b_2"]  # or "Prov_b_2" if that matches your CSV
-        prob_x  = row["Prop_x"]
-        tf      = row["Tolerance_Factor"]
+        prop_a_1  = row["Prop_a_1"]    # or "Prob_a" if that's your actual CSV column
+        prop_a_2  = row["Prop_a_2"]    # or "Prob_a_2" if that's your actual CSV column
+        prop_b_1  = row["Prop_b_1"]
+        prop_b_2  = row["Prop_b_2"] 
+        prop_b_3  = row["Prop_b_3"]  # or "Prov_b_2" if that matches your CSV
+        prop_x_1  = row["Prop_x_1"]
+        prop_x_2  = row["Prop_x_2"]
+        tf        = row["Tolerance_Factor"]
         structure = row["Structure_of_Material"]
         bandgap   = row["BandGap"]
 
@@ -79,8 +83,6 @@ class ChemTokenizer:
             if tok.isdigit():
                 continue
             tokens.append(tok)
-
-        # -- Separate tokens by site: A, B, or X. This helps us group them under "A_Part", etc. --
         a_tokens = []
         b_tokens = []
         x_tokens = []
@@ -93,43 +95,56 @@ class ChemTokenizer:
             elif t in self.known_X_symbols:
                 x_tokens.append(t)
             else:
-                # If not found, you can decide how to handle it. We'll ignore or store in a separate list:
-                # others.append(t)
+
                 pass
 
         final_sequence = []
-
+        print("A_tokens:", a_tokens)
+        print("B_tokens:", b_tokens)
+        print("X_tokens:", x_tokens)
+        final_sequence.append("Composite")
         # --- A-site tokens block ---
         if a_tokens:
-            final_sequence.append("A_Part")
-            for t in a_tokens:
-                # e.g. "MA", then [prob_a], [r_a]
-                final_sequence.append(t)           # "MA"
-                final_sequence.append([prob_a])    # [1]
-                final_sequence.append([r_a])       # [2.16]
-
+            # final_sequence.append("A_Part")
+            if len(a_tokens) == 1:
+                a_part = [[t, prop_a_1, r_a] for t in a_tokens]
+                final_sequence.extend(a_part)
+            elif len(a_tokens) ==2:
+                a_token = "".join(a_tokens)
+                a_part = [[a_token, prop_a_1, prop_a_2, r_a]]
+                final_sequence.extend(a_part)
         # --- B-site tokens block ---
         if b_tokens:
-            final_sequence.append("B_Part")
-            for t in b_tokens:
-                final_sequence.append(t)           # "Pb"
-                final_sequence.append([prob_b])    # [1]
-                final_sequence.append([prob_b2])   # [0]
-                final_sequence.append([r_b])       # [1.19]
+            # final_sequence.append("B_Part")
+            if len(b_tokens) == 1:
+                b_part = [[t, prop_b_1, r_b] for t in b_tokens]
+                final_sequence.extend(b_part)
+            elif len(b_tokens) == 2:
+                b_token = "".join(b_tokens)
+                b_part = [[b_token, prop_b_1, prop_b_2, r_b]]
+                final_sequence.extend(b_part)
+            elif len(b_tokens) == 3:
+                b_token = "".join(b_tokens)
+                b_part = [[t, prop_b_1,prop_b_2,prop_b_3, r_b] for t in b_tokens]
+                final_sequence.extend(b_part)
 
-        # --- X-site tokens block ---
+        # # --- X-site tokens block ---
         if x_tokens:
-            final_sequence.append("X_part")
-            for t in x_tokens:
-                final_sequence.append(t)          # "I"
-                final_sequence.append([prob_x])   # [1]
-                final_sequence.append([r_x])      # [2.2]
+            # final_sequence.append("X_part")
+            if len(x_tokens) == 1:
+                x_part = [[t, prop_x_1, r_x] for t in x_tokens]
+                final_sequence.extend(x_part)
+            elif len(x_tokens) == 2:    
+                x_token = "".join(x_tokens)
+                x_part = [[x_token, prop_x_1, prop_x_2, r_x]]
+                final_sequence.extend(x_part)
 
         # Finally, append structure, tf, and bandgap as single-element lists
         # Example: [0], [0.909435270198628], [1.55]
-        final_sequence.append([structure])
-        final_sequence.append([tf])
-        final_sequence.append([bandgap])
+        final_sequence.append(structure)
+        final_sequence.append(tf)
+        final_sequence.append("Target")
+        final_sequence.append(bandgap)
 
         return final_sequence
 
@@ -147,24 +162,24 @@ class ChemTokenizer:
 
 # --- Example usage ---
 if __name__ == "__main__":
-    df = pd.read_csv("Data_FE.csv")
+    # df = pd.read_csv("Data_FE.csv")
 
     tokenizer = ChemTokenizer()
-    example = df.iloc[0]  # first row as an example
+    # example = df.iloc[0]  # first row as an example
 
-    result = tokenizer.encode(example)
-    print(result)
-
-    # row = df.iloc[-1].to_dict()  # first row as an example
+    # example = df.iloc[-1].to_dict()  # first row as an example
     example = {
-        "Name": ["MA0.1FA0.9PbI3"],
+        "Name": ["MA0.1FA0.9PbCuICl3"],
         "R_a": [2.16],
-        "Prop_a": [1],
+        "Prop_a_1": [1],
+        "Prop_a_2": [0],
         "R_b": [1.19],
-        "Prop_b": [1],
+        "Prop_b_1": [1],
         "Prop_b_2": [0],
+        "Prop_b_3": [0],
         "R_x": [2.2],
-        "Prop_x": [1],
+        "Prop_x_1": [1],
+        "Prop_x_2": [0],
         "BandGap": [1.55],
         "Tolerance_Factor": [0.909435270198628],
         "Structure_of_Material": [0],
