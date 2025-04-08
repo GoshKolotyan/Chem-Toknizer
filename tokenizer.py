@@ -1,12 +1,15 @@
 import re
+import json
 from pprint import pprint
 import pandas as pd
 import torch
 
 class ChemTokenizer:
     def __init__(self):
-        self.special_tokens = ["CLS", "SEP"]
-
+        # self.special_tokens = ["CLS", "SEP"]
+        with open('canonical_vocab.json', 'r') as f:
+            self.vocab = json.load(f)
+        # print("Vocab:", self.vocab) 
         # 1) Read CSV data for A/B/X
         self.known_A_elements = pd.read_csv('A_part_AA.csv', delimiter=';')
         self.known_B_elements = pd.read_csv('B_part_AA.csv', delimiter=';')
@@ -102,40 +105,50 @@ class ChemTokenizer:
         print("A_tokens:", a_tokens)
         print("B_tokens:", b_tokens)
         print("X_tokens:", x_tokens)
-        final_sequence.append("Composite")
+        # final_sequence.append("Composite")
         # --- A-site tokens block ---
         if a_tokens:
             # final_sequence.append("A_Part")
             if len(a_tokens) == 1:
-                a_part = [[t, prop_a_1, r_a] for t in a_tokens]
+                a_token = [self.vocab.get(token, tok) for token in a_tokens]
+                print("A token is ",a_tokens, "Encode is", a_token)
+    
+                a_part = [[a_token, prop_a_1, r_a] for t in a_tokens]
                 final_sequence.extend(a_part)
             elif len(a_tokens) ==2:
-                a_token = "".join(a_tokens)
+                a_token = [self.vocab.get(token, tok) for token in a_tokens]
+                print("A token is ",a_tokens, "Encode is", a_token)
                 a_part = [[a_token, prop_a_1, prop_a_2, r_a]]
                 final_sequence.extend(a_part)
         # --- B-site tokens block ---
         if b_tokens:
             # final_sequence.append("B_Part")
             if len(b_tokens) == 1:
-                b_part = [[t, prop_b_1, r_b] for t in b_tokens]
+                b_token = [self.vocab.get(token, tok) for token in b_tokens]
+                print("B token is ",b_tokens, "Encode is", b_token) 
+                b_part = [[b_token, prop_b_1, r_b]]
                 final_sequence.extend(b_part)
             elif len(b_tokens) == 2:
-                b_token = "".join(b_tokens)
+                b_token = [self.vocab.get(token, tok) for token in b_tokens]
+                print("B token is ",b_tokens, "Encode is", b_token) 
                 b_part = [[b_token, prop_b_1, prop_b_2, r_b]]
                 final_sequence.extend(b_part)
             elif len(b_tokens) == 3:
-                b_token = "".join(b_tokens)
-                b_part = [[t, prop_b_1,prop_b_2,prop_b_3, r_b] for t in b_tokens]
+                b_token = [self.vocab.get(token, tok) for token in b_tokens]
+                print("B token is ",b_tokens, "Encode is", b_token) 
+                b_part = [[b_token, prop_b_1,prop_b_2,prop_b_3, r_b]]
                 final_sequence.extend(b_part)
 
         # # --- X-site tokens block ---
         if x_tokens:
             # final_sequence.append("X_part")
+            x_token = [self.vocab.get(token, tok) for token in x_tokens]
             if len(x_tokens) == 1:
-                x_part = [[t, prop_x_1, r_x] for t in x_tokens]
+                x_part = [[x_token, prop_x_1, r_x]]
+                print("X token is ",x_tokens, "Encode is", x_token) 
                 final_sequence.extend(x_part)
             elif len(x_tokens) == 2:    
-                x_token = "".join(x_tokens)
+                print("X token is ",x_tokens, "Encode is", x_token) 
                 x_part = [[x_token, prop_x_1, prop_x_2, r_x]]
                 final_sequence.extend(x_part)
 
@@ -143,10 +156,22 @@ class ChemTokenizer:
         # Example: [0], [0.909435270198628], [1.55]
         final_sequence.append(structure)
         final_sequence.append(tf)
-        final_sequence.append("Target")
+        # final_sequence.append("Target")
         final_sequence.append(bandgap)
+        print(final_sequence)  # Debug: show the list you're converting
+        def flatten_nested(seq):
+            result = []
+            for item in seq:
+                if isinstance(item, list):
+                    result.extend(flatten_nested(item))
+                else:
+                    result.append(float(item))
+            return result
 
-        return final_sequence
+        flat_seq = flatten_nested(final_sequence)
+        torch_tensor = torch.FloatTensor(flat_seq)
+        target = torch_tensor[-1]
+        return torch_tensor, target
 
     def decode(self, tokens):
         # Implement if you need a reverse operation
@@ -162,14 +187,14 @@ class ChemTokenizer:
 
 # --- Example usage ---
 if __name__ == "__main__":
-    # df = pd.read_csv("Data_FE.csv")
+#     # df = pd.read_csv("Data_FE.csv")
 
     tokenizer = ChemTokenizer()
     # example = df.iloc[0]  # first row as an example
 
     # example = df.iloc[-1].to_dict()  # first row as an example
     example = {
-        "Name": ["MA0.1FA0.9PbCuICl3"],
+        "Name": ["Ba3CsGa5Se10Cl2"],#"Cs2AgBi0.25In0.5Sb0.25Br6"],
         "R_a": [2.16],
         "Prop_a_1": [1],
         "Prop_a_2": [0],
@@ -185,4 +210,6 @@ if __name__ == "__main__":
         "Structure_of_Material": [0],
     }
 
-    print(tokenizer.encode(example))
+    X_, traget = tokenizer.encode(example)
+    print("X is --->",X_)
+    print("BandGap is--->",traget)
