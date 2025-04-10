@@ -7,13 +7,13 @@ import torch
 class ChemTokenizer:
     def __init__(self):
         # self.special_tokens = ["CLS", "SEP"]
-        with open('canonical_vocab.json', 'r') as f:
+        with open('./Data/canonical_vocab.json', 'r') as f:
             self.vocab = json.load(f)
         # print("Vocab:", self.vocab) 
         # 1) Read CSV data for A/B/X
-        self.known_A_elements = pd.read_csv('A_part_AA.csv', delimiter=';')
-        self.known_B_elements = pd.read_csv('B_part_AA.csv', delimiter=';')
-        self.known_X_elements = pd.read_csv('X_part_AA.csv', delimiter=';')
+        self.known_A_elements = pd.read_csv('./Data/A_part_AA.csv', delimiter=';')
+        self.known_B_elements = pd.read_csv('./Data/B_part_AA.csv', delimiter=';')
+        self.known_X_elements = pd.read_csv('./Data/X_part_AA.csv', delimiter=';')
 
         # 2) Extract the 'Element' columns
         self.known_A_symbols = list(self.known_A_elements['Element'])
@@ -187,29 +187,18 @@ class ChemTokenizer:
 
 # --- Example usage ---
 if __name__ == "__main__":
-#     # df = pd.read_csv("Data_FE.csv")
+    df = pd.read_csv("Data/Full_Data_ranamed_columns.csv")
 
     tokenizer = ChemTokenizer()
-    # example = df.iloc[0]  # first row as an example
+    
+    for i in range(10):
+        example = df.iloc[i]  # first row as an example
 
-    # example = df.iloc[-1].to_dict()  # first row as an example
-    example = {
-        "Name": ["Ba3CsGa5Se10Cl2"],#"Cs2AgBi0.25In0.5Sb0.25Br6"],
-        "R_a": [2.16],
-        "Prop_a_1": [1],
-        "Prop_a_2": [0],
-        "R_b": [1.19],
-        "Prop_b_1": [1],
-        "Prop_b_2": [0],
-        "Prop_b_3": [0],
-        "R_x": [2.2],
-        "Prop_x_1": [1],
-        "Prop_x_2": [0],
-        "BandGap": [1.55],
-        "Tolerance_Factor": [0.909435270198628],
-        "Structure_of_Material": [0],
-    }
+        # print("Example row:", example)
 
-    X_, traget = tokenizer.encode(example)
-    print("X is --->",X_)
-    print("BandGap is--->",traget)
+
+        X_, traget = tokenizer.encode(example)
+        print("X is --->",X_)
+        print("X shape is --->",X_.shape)
+        print("BandGap is--->",traget)
+        print("BandGap shape is--->",traget.shape)
